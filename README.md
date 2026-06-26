@@ -53,6 +53,12 @@ This helper currently targets the Windows wheels published by:
 
 The exact package choice is based on your selected ComfyUI environment's PyTorch and CUDA versions.
 
+## Files
+
+- `PingPong-SageInstaller.bat`: double-click launcher.
+- `SagePocketInstaller.ps1`: polished pocket-console GUI.
+- `PingPong-SageInstaller-Compact.ps1`: older compact prototype, kept for reference.
+
 ## Safety
 
 This is a small PowerShell/Batch utility, so you can inspect the source before running it. The installer runs package commands through the selected ComfyUI Python, for example:
