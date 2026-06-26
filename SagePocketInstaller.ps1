@@ -14,10 +14,25 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
+$SageAttentionRelease = "v2.2.0-windows.post4"
+$SageAttentionBaseUrl = "https://github.com/woct0rdho/SageAttention/releases/download/$SageAttentionRelease"
+$SageAttentionWheelMap = @{
+  "cu128" = "sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
+  "cu130" = "sageattention-2.2.0+cu130torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
+}
+$UpgradePipToolsOnFailure = $true
+
 $ScriptDir = Split-Path -Parent $PSCommandPath
 $LogDir = Join-Path $ScriptDir "logs"
-if (-not (Test-Path -LiteralPath $LogDir)) {
-  New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+try {
+  if (-not (Test-Path -LiteralPath $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+  }
+} catch {
+  $LogDir = Join-Path $env:TEMP "SagePocket\logs"
+  if (-not (Test-Path -LiteralPath $LogDir)) {
+    New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+  }
 }
 $RunLog = Join-Path $LogDir ("sage_pocket_{0}.log" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
 
@@ -130,7 +145,51 @@ print(json.dumps(data))
 '@
   $raw = & $Python -c $code 2>&1
   if ($LASTEXITCODE -ne 0) { throw "Could not run Python: $raw" }
-  return (($raw | Select-Object -First 1) | ConvertFrom-Json)
+  $jsonLine = @($raw | ForEach-Object { [string]$_ } | Where-Object {
+    $line = $_.Trim()
+    $line.StartsWith("{") -and $line.EndsWith("}")
+  } | Select-Object -Last 1)
+
+  if (-not $jsonLine) {
+    Write-RunLog "Python environment detection raw output:"
+    foreach ($line in $raw) { Write-RunLog ([string]$line) }
+    throw "Environment detection failed. Check the log for the Python output."
+  }
+
+  try {
+    return ($jsonLine | ConvertFrom-Json)
+  } catch {
+    Write-RunLog "Python environment JSON parse failed:"
+    foreach ($line in $raw) { Write-RunLog ([string]$line) }
+    throw "Environment detection failed. Check the log for the Python output."
+  }
+}
+
+function Resolve-SageAttentionWheel {
+  param([string]$CudaText)
+
+  if ([string]::IsNullOrWhiteSpace($CudaText)) {
+    throw "This PyTorch build does not report CUDA. SageAttention wheels require CUDA 12.x or 13.x."
+  }
+
+  $variant = $null
+  if ($CudaText -like "13.*") {
+    $variant = "cu130"
+  } elseif ($CudaText -like "12.*") {
+    $variant = "cu128"
+  }
+
+  if (-not $variant -or -not $SageAttentionWheelMap.ContainsKey($variant)) {
+    $known = ($SageAttentionWheelMap.Keys | Sort-Object) -join ", "
+    throw "No SageAttention wheel is mapped for CUDA $CudaText. Known variants: $known. Please download the latest tool version."
+  }
+
+  return [pscustomobject]@{
+    Variant = $variant
+    FileName = $SageAttentionWheelMap[$variant]
+    Url = "$SageAttentionBaseUrl/$($SageAttentionWheelMap[$variant])"
+    Release = $SageAttentionRelease
+  }
 }
 
 function Get-InstallPlan {
@@ -146,28 +205,19 @@ function Get-InstallPlan {
 
   if ($torchVersion -ge [version]"2.10.0") {
     $tritonSpec = "triton-windows<3.7"
-  } elseif ($torchVersion -ge [version]"2.9.0") {
+  } else {
     $tritonSpec = "triton-windows<3.6"
-  } elseif ($torchVersion -ge [version]"2.8.0") {
-    $tritonSpec = "triton-windows<3.5"
-  } else {
-    $tritonSpec = "triton-windows<3.4"
   }
-
-  if ($cudaText -like "13.*") {
-    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu130torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
-  } elseif ($cudaText -like "12.*") {
-    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
-  } else {
-    throw "Unsupported Torch CUDA value: $cudaText. Expected CUDA 12.x or 13.x."
-  }
+  $sageWheel = Resolve-SageAttentionWheel -CudaText $cudaText
 
   return [pscustomobject]@{
     Python = $Info.python
     Torch = $Info.torch
     Cuda = $cudaText
     TritonSpec = $tritonSpec
-    SageUrl = $sageUrl
+    SageVariant = $sageWheel.Variant
+    SageRelease = $sageWheel.Release
+    SageUrl = $sageWheel.Url
   }
 }
 
@@ -181,6 +231,34 @@ function Run-LoggedProcess {
   $exitCode = $LASTEXITCODE
   foreach ($line in $output) { & $Log ([string]$line) }
   if ($exitCode -ne 0) { throw "$FilePath exited with code $exitCode" }
+}
+
+function Install-PipPackage {
+  param(
+    [string]$Python,
+    [string[]]$PipArgs,
+    [scriptblock]$Log,
+    [string]$FailureHint = ""
+  )
+
+  try {
+    Run-LoggedProcess $Python (@("-m", "pip", "install", "-U") + $PipArgs) $Log
+  } catch {
+    if (-not $UpgradePipToolsOnFailure) {
+      if ($FailureHint) { & $Log $FailureHint }
+      throw
+    }
+
+    & $Log "pip install failed; updating pip tools once, then retrying"
+    Run-LoggedProcess $Python @("-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel") $Log
+
+    try {
+      Run-LoggedProcess $Python (@("-m", "pip", "install", "-U") + $PipArgs) $Log
+    } catch {
+      if ($FailureHint) { & $Log $FailureHint }
+      throw
+    }
+  }
 }
 
 $xaml = @'
@@ -284,8 +362,9 @@ $xaml = @'
 
             <Border Width="428" Height="94" Background="#F7F1E6" CornerRadius="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,218,0,0" BorderBrush="#111718" BorderThickness="2">
               <Grid>
-                <ComboBox x:Name="PathBox" Width="214" Height="28" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,18,0,0" FontSize="12" IsEditable="True"/>
-                <Button x:Name="ScanButton" Content="SCAN" Width="44" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="184,21,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="11"/>
+                <ComboBox x:Name="PathBox" Width="176" Height="28" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,18,0,0" FontSize="12" IsEditable="True"/>
+                <Button x:Name="ScanButton" Content="SCAN" Width="44" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="154,21,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="11"/>
+                <Button x:Name="BrowseButton" Content="..." Width="30" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="208,21,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Yellow}" Foreground="#2C210B" FontSize="11"/>
                 <TextBlock x:Name="EnvText" Text="No ComfyUI selected." Foreground="#5B6A65" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,54,0,0"/>
                 <Border Width="214" Height="8" Background="#D9E1DD" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,73,0,0"/>
                 <Border x:Name="ProgressFill" Width="0" Height="8" Background="{StaticResource Mint}" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,73,0,0"/>
@@ -318,6 +397,7 @@ $WindowStateText = $window.FindName("WindowStateText")
 $LogBox = $window.FindName("LogBox")
 $PathBox = $window.FindName("PathBox")
 $ScanButton = $window.FindName("ScanButton")
+$BrowseButton = $window.FindName("BrowseButton")
 $EnvText = $window.FindName("EnvText")
 $ProgressFill = $window.FindName("ProgressFill")
 $ProgressBall = $window.FindName("ProgressBall")
@@ -352,8 +432,10 @@ function Set-Progress {
 function Set-Busy {
   param([bool]$Busy)
   $ScanButton.IsEnabled = -not $Busy
+  $BrowseButton.IsEnabled = -not $Busy
   $InstallButton.IsEnabled = -not $Busy
   $VerifyButton.IsEnabled = -not $Busy
+  $CloseButton.IsEnabled = -not $Busy
   $PathBox.IsEnabled = -not $Busy
 }
 
@@ -365,11 +447,10 @@ function Get-CurrentComfyPath {
   return $path.Trim('"').Trim()
 }
 
-function Refresh-Candidates {
+function Apply-Candidates {
+  param([string[]]$Paths)
   $PathBox.Items.Clear()
-  Append-Log "scanning ComfyUI paths"
-  $paths = @(Get-ComfyCandidates)
-  foreach ($path in $paths) { [void]$PathBox.Items.Add($path) }
+  foreach ($path in $Paths) { [void]$PathBox.Items.Add($path) }
   if ($PathBox.Items.Count -gt 0) {
     $PathBox.SelectedIndex = 0
     $WindowStateText.Text = "FOUND"
@@ -380,6 +461,15 @@ function Refresh-Candidates {
   }
 }
 
+function Start-Scan {
+  if ($scanWorker.IsBusy) { return }
+  $WindowStateText.Text = "SCAN..."
+  Append-Log "scanning ComfyUI paths"
+  $ScanButton.IsEnabled = $false
+  $BrowseButton.IsEnabled = $false
+  $scanWorker.RunWorkerAsync()
+}
+
 function Update-Preview {
   $path = Get-CurrentComfyPath
   if ([string]::IsNullOrWhiteSpace($path)) { return }
@@ -388,42 +478,104 @@ function Update-Preview {
     $info = Get-PythonInfo $python
     $plan = Get-InstallPlan $info
     $EnvText.Text = "PY $($plan.Python)  |  TORCH $($plan.Torch)  |  CUDA $($plan.Cuda)"
-    Append-Log "court: $path"
-    Append-Log "serve: $($plan.TritonSpec)"
+    Append-Log "target: $path"
+    Append-Log "triton: $($plan.TritonSpec)"
+    Append-Log "sage: $($plan.SageVariant) $($plan.SageRelease)"
   } catch {
     $EnvText.Text = $_.Exception.Message
     Append-Log $_.Exception.Message
   }
 }
 
+$scanWorker = New-Object System.ComponentModel.BackgroundWorker
+$scanWorker.Add_DoWork({
+  param($sender, $eventArgs)
+  $eventArgs.Result = @(Get-ComfyCandidates)
+})
+$scanWorker.Add_RunWorkerCompleted({
+  param($sender, $eventArgs)
+  $ScanButton.IsEnabled = -not $worker.IsBusy
+  $BrowseButton.IsEnabled = -not $worker.IsBusy
+  if ($eventArgs.Error) {
+    $WindowStateText.Text = "ERR"
+    Append-Log $eventArgs.Error.Message
+  } else {
+    Apply-Candidates -Paths ([string[]]$eventArgs.Result)
+  }
+})
+
 $PathBox.Add_SelectionChanged({ Update-Preview })
 $PathBox.Add_LostFocus({ Update-Preview })
-$ScanButton.Add_Click({ Refresh-Candidates })
+$ScanButton.Add_Click({ Start-Scan })
+$BrowseButton.Add_Click({
+  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+  $dialog.Description = "Select a ComfyUI folder"
+  if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+  $selected = $dialog.SelectedPath
+  if (-not (Test-ComfyRoot $selected)) {
+    [System.Windows.MessageBox]::Show(
+      "That folder does not look like a ComfyUI install with a Python environment.",
+      "ComfyUI not found",
+      "OK",
+      "Warning"
+    ) | Out-Null
+    return
+  }
+  if (-not $PathBox.Items.Contains($selected)) {
+    [void]$PathBox.Items.Add($selected)
+  }
+  $PathBox.Text = $selected
+  Update-Preview
+})
 $CloseButton.Add_Click({ $window.Close() })
 
+$worker = New-Object System.ComponentModel.BackgroundWorker
+$worker.WorkerReportsProgress = $true
+
+$verifyWorker = New-Object System.ComponentModel.BackgroundWorker
+$verifyWorker.WorkerReportsProgress = $true
+
+$verifyWorker.Add_DoWork({
+  param($sender, $eventArgs)
+  $path = [string]$eventArgs.Argument
+  $report = { param([int]$pct, [string]$message) $sender.ReportProgress($pct, $message) }
+  & $report 75 "verifying triton"
+  $python = Find-Python $path
+  if (-not $python) { throw "Could not find Python under $path" }
+  Run-LoggedProcess $python @("-c", "import triton; print('triton OK', getattr(triton, '__version__', 'unknown'))") { param($line) & $report 82 $line }
+  & $report 90 "verifying sageattention"
+  Run-LoggedProcess $python @("-c", "import sageattention; print('sageattention OK')") { param($line) & $report 96 $line }
+  & $report 100 "verification complete"
+})
+
+$verifyWorker.Add_ProgressChanged({
+  param($sender, $eventArgs)
+  Set-Progress $eventArgs.ProgressPercentage
+  Append-Log ([string]$eventArgs.UserState)
+})
+
+$verifyWorker.Add_RunWorkerCompleted({
+  param($sender, $eventArgs)
+  Set-Busy $false
+  if ($eventArgs.Error) {
+    $WindowStateText.Text = "ERR"
+    Append-Log $eventArgs.Error.Message
+  } else {
+    $WindowStateText.Text = "WIN"
+  }
+})
+
 $VerifyButton.Add_Click({
+  if ($worker.IsBusy -or $verifyWorker.IsBusy) { return }
   $path = Get-CurrentComfyPath
   if ([string]::IsNullOrWhiteSpace($path)) {
     Append-Log "choose ComfyUI first"
     return
   }
-  try {
-    $WindowStateText.Text = "CHECK"
-    Set-Progress 75
-    $python = Find-Python $path
-    Run-LoggedProcess $python @("-c", "import triton; print('triton OK', getattr(triton, '__version__', 'unknown'))") { param($line) Append-Log $line }
-    Run-LoggedProcess $python @("-c", "import sageattention; print('sageattention OK')") { param($line) Append-Log $line }
-    Set-Progress 100
-    $WindowStateText.Text = "WIN"
-    Append-Log "verification complete"
-  } catch {
-    $WindowStateText.Text = "ERR"
-    Append-Log $_.Exception.Message
-  }
+  $WindowStateText.Text = "CHECK"
+  Set-Busy $true
+  $verifyWorker.RunWorkerAsync($path)
 })
-
-$worker = New-Object System.ComponentModel.BackgroundWorker
-$worker.WorkerReportsProgress = $true
 
 $worker.Add_DoWork({
   param($sender, $eventArgs)
@@ -437,14 +589,11 @@ $worker.Add_DoWork({
   $plan = Get-InstallPlan $info
 
   & $report 15 "torch $($info.torch), cuda $($info.torch_cuda)"
-  & $report 25 "updating pip tools"
-  Run-LoggedProcess $python @("-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel") { param($line) & $report 30 $line }
-
   & $report 45 "installing triton"
-  Run-LoggedProcess $python @("-m", "pip", "install", "-U", $plan.TritonSpec) { param($line) & $report 55 $line }
+  Install-PipPackage $python @($plan.TritonSpec) { param($line) & $report 55 $line } "Triton install failed. Check the tool version and your PyTorch version."
 
   & $report 70 "installing sageattention"
-  Run-LoggedProcess $python @("-m", "pip", "install", "-U", $plan.SageUrl) { param($line) & $report 80 $line }
+  Install-PipPackage $python @($plan.SageUrl) { param($line) & $report 80 $line } "SageAttention wheel install failed. Check whether a newer tool version supports this CUDA/PyTorch build."
 
   & $report 90 "verifying imports"
   Run-LoggedProcess $python @("-c", "import triton; import sageattention; print('imports OK')") { param($line) & $report 95 $line }
@@ -471,7 +620,7 @@ $worker.Add_RunWorkerCompleted({
 })
 
 $InstallButton.Add_Click({
-  if ($worker.IsBusy) { return }
+  if ($worker.IsBusy -or $verifyWorker.IsBusy) { return }
   $path = Get-CurrentComfyPath
   if ([string]::IsNullOrWhiteSpace($path)) {
     Append-Log "choose ComfyUI first"
@@ -494,7 +643,7 @@ $InstallButton.Add_Click({
 })
 
 $window.Add_SourceInitialized({
-  Refresh-Candidates
+  Start-Scan
 })
 
 [void]$window.ShowDialog()
