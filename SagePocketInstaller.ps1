@@ -265,7 +265,7 @@ $xaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Sage &amp; Triton One Shot"
-        Width="720" Height="470"
+        Width="980" Height="640"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -287,6 +287,8 @@ $xaml = @'
       <Setter Property="BorderThickness" Value="0"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Padding" Value="12,0"/>
+      <Setter Property="SnapsToDevicePixels" Value="True"/>
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
@@ -294,7 +296,7 @@ $xaml = @'
               <Border.Effect>
                 <DropShadowEffect Color="#111111" BlurRadius="6" ShadowDepth="2" Opacity="0.14"/>
               </Border.Effect>
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
             </Border>
           </ControlTemplate>
         </Setter.Value>
@@ -308,7 +310,7 @@ $xaml = @'
     </Border.Effect>
     <Grid ClipToBounds="True">
       <Grid.RowDefinitions>
-        <RowDefinition Height="38"/>
+        <RowDefinition Height="42"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -318,38 +320,39 @@ $xaml = @'
             <Ellipse Width="10" Height="10" Fill="#EF665C" Margin="0,0,8,0"/>
             <Ellipse Width="10" Height="10" Fill="#F4C75D" Margin="0,0,8,0"/>
             <Ellipse Width="10" Height="10" Fill="#82D9B7" Margin="0,0,22,0"/>
-            <TextBlock Text="Sage &amp; Triton One Shot" Foreground="#F7F1E6" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
+            <TextBlock Text="Sage &amp; Triton One Shot" Foreground="#F7F1E6" FontWeight="Bold" FontSize="19" VerticalAlignment="Center"/>
           </StackPanel>
-          <TextBlock x:Name="WindowStateText" Text="READY" Foreground="{StaticResource Mint}" FontWeight="Bold" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,30,0"/>
+          <TextBlock x:Name="WindowStateText" Text="READY" Foreground="{StaticResource Mint}" FontWeight="Bold" FontSize="18" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,92,0"/>
+          <Button x:Name="TitleCloseButton" Content="X" Width="44" Height="24" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,14,0" Style="{StaticResource PocketButton}" Background="{StaticResource Coral}" Foreground="#2D1110" FontSize="11"/>
         </Grid>
       </Border>
 
       <Grid Grid.Row="1">
-        <Border Width="664" Height="364" Background="{StaticResource SoftGreen}" CornerRadius="26" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,4" BorderBrush="#A9C5B1" BorderThickness="1"/>
-        <Border Width="580" Height="14" Background="#2C000000" CornerRadius="7" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,20"/>
+        <Border Width="880" Height="520" Background="{StaticResource SoftGreen}" CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,2,0,6" BorderBrush="#A9C5B1" BorderThickness="1"/>
+        <Border Width="760" Height="14" Background="#2C000000" CornerRadius="7" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,24"/>
 
-        <Border Width="548" Height="334" Background="{StaticResource Shell}" CornerRadius="26" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#111718" BorderThickness="2">
+        <Border Width="800" Height="488" Background="{StaticResource Shell}" CornerRadius="28" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#111718" BorderThickness="2">
           <Border.Effect>
             <DropShadowEffect Color="#162620" BlurRadius="30" ShadowDepth="15" Opacity="0.24"/>
           </Border.Effect>
           <Grid>
-            <Border Width="372" Height="166" Background="{StaticResource Shell2}" CornerRadius="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,30,0,0" BorderBrush="#0F1516" BorderThickness="2">
+            <Border Width="704" Height="260" Background="{StaticResource Shell2}" CornerRadius="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,28,0,0" BorderBrush="#0F1516" BorderThickness="2">
               <Border.Effect>
                 <DropShadowEffect Color="#000000" BlurRadius="18" ShadowDepth="7" Opacity="0.18"/>
               </Border.Effect>
               <Grid>
-                <Border Width="340" Height="138" Background="#182123" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#48575A" BorderThickness="1"/>
-                <Border Width="308" Height="110" Background="{StaticResource Dark}" CornerRadius="11" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#557DE2C2" BorderThickness="1">
+                <Border Width="670" Height="228" Background="#182123" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#48575A" BorderThickness="1"/>
+                <Border Width="634" Height="198" Background="{StaticResource Dark}" CornerRadius="11" HorizontalAlignment="Center" VerticalAlignment="Center" BorderBrush="#557DE2C2" BorderThickness="1">
                   <Grid>
-                    <Rectangle Width="280" Height="1" Fill="#557DE2C2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,28,0,0"/>
-                    <Rectangle Width="1" Height="70" Fill="#367DE2C2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,28,0,0"/>
+                    <Rectangle Width="590" Height="1" Fill="#557DE2C2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,30,0,0"/>
+                    <Rectangle Width="1" Height="140" Fill="#367DE2C2" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,30,0,0"/>
                     <TextBlock Text="INSTALL LOG" Foreground="{StaticResource Mint}" FontSize="13" FontWeight="Bold" Margin="14,10,0,0"/>
-                    <Rectangle Width="5" Height="34" Fill="{StaticResource Yellow}" RadiusX="3" RadiusY="3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18,48,0,0"/>
-                    <Rectangle Width="5" Height="34" Fill="{StaticResource Coral}" RadiusX="3" RadiusY="3" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,60,18,0"/>
-                    <Ellipse Width="11" Height="11" Fill="#F7F1E6" Stroke="{StaticResource Mint}" StrokeThickness="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,50,56,0"/>
-                    <TextBox x:Name="LogBox" Text="&gt; scan or choose ComfyUI&#x0a;&gt; A installs into selected venv"
+                    <Rectangle Width="5" Height="70" Fill="{StaticResource Yellow}" RadiusX="3" RadiusY="3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="18,64,0,0"/>
+                    <Rectangle Width="5" Height="70" Fill="{StaticResource Coral}" RadiusX="3" RadiusY="3" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,76,18,0"/>
+                    <Ellipse Width="11" Height="11" Fill="#F7F1E6" Stroke="{StaticResource Mint}" StrokeThickness="2" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,58,56,0"/>
+                    <TextBox x:Name="LogBox" Text="&gt; choose a ComfyUI folder&#x0a;&gt; press Install when ready"
                              Background="Transparent" BorderThickness="0" Foreground="#DDFDEB"
-                             FontFamily="Consolas" FontSize="12" Margin="34,39,52,10"
+                             FontFamily="Consolas" FontSize="12" Margin="36,42,54,14"
                              TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
                              IsReadOnly="True"/>
                   </Grid>
@@ -357,26 +360,31 @@ $xaml = @'
               </Grid>
             </Border>
 
-            <Border Width="86" Height="15" Background="#111719" CornerRadius="8" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="134,200,0,0"/>
-            <Border Width="86" Height="15" Background="#111719" CornerRadius="8" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,200,134,0"/>
+            <Border Width="704" Height="168" Background="#F7F1E6" CornerRadius="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,300,0,0" BorderBrush="#111718" BorderThickness="2">
+              <Grid Margin="28,18,28,16">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="410"/>
+                  <ColumnDefinition Width="28"/>
+                  <ColumnDefinition Width="210"/>
+                </Grid.ColumnDefinitions>
 
-            <Border Width="428" Height="94" Background="#F7F1E6" CornerRadius="22" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,218,0,0" BorderBrush="#111718" BorderThickness="2">
-              <Grid>
-                <ComboBox x:Name="PathBox" Width="176" Height="28" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,18,0,0" FontSize="12" IsEditable="True"/>
-                <Button x:Name="ScanButton" Content="SCAN" Width="44" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="154,21,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="11"/>
-                <Button x:Name="BrowseButton" Content="..." Width="30" Height="20" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="208,21,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Yellow}" Foreground="#2C210B" FontSize="11"/>
-                <TextBlock x:Name="EnvText" Text="No ComfyUI selected." Foreground="#5B6A65" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,54,0,0"/>
-                <Border Width="214" Height="8" Background="#D9E1DD" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,73,0,0"/>
-                <Border x:Name="ProgressFill" Width="0" Height="8" Background="{StaticResource Mint}" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="24,73,0,0"/>
-                <Ellipse x:Name="ProgressBall" Width="22" Height="22" Fill="#F7F1E6" Stroke="{StaticResource Mint}" StrokeThickness="3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="13,66,0,0"/>
-                <TextBlock x:Name="PercentText" Text="0%" Foreground="{StaticResource Shell}" FontSize="13" FontWeight="Bold" Width="40" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="198,62,0,0" TextAlignment="Right"/>
+                <Grid Grid.Column="0">
+                  <TextBlock Text="ComfyUI folder" Foreground="{StaticResource Muted}" FontSize="10" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                  <ComboBox x:Name="PathBox" Width="240" Height="32" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,24,0,0" FontSize="12" IsEditable="True"/>
+                  <Button x:Name="ScanButton" Content="Rescan" Width="80" Height="32" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="250,24,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="11"/>
+                  <Button x:Name="BrowseButton" Content="Browse" Width="80" Height="32" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="330,24,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Yellow}" Foreground="#2C210B" FontSize="11"/>
+                  <TextBlock x:Name="EnvText" Text="No ComfyUI selected." Foreground="#5B6A65" FontSize="10" FontWeight="SemiBold" Width="410" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,66,0,0"/>
+                  <Border Width="330" Height="8" Background="#D9E1DD" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="11,106,0,0"/>
+                  <Border x:Name="ProgressFill" Width="0" Height="8" Background="{StaticResource Mint}" CornerRadius="4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="11,106,0,0"/>
+                  <Ellipse x:Name="ProgressBall" Width="22" Height="22" Fill="#F7F1E6" Stroke="{StaticResource Mint}" StrokeThickness="3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,99,0,0"/>
+                  <TextBlock x:Name="PercentText" Text="0%" Foreground="{StaticResource Shell}" FontSize="13" FontWeight="Bold" Width="58" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="352,98,0,0" TextAlignment="Right"/>
+                </Grid>
 
-                <Border Width="48" Height="18" Background="#111719" CornerRadius="7" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="272,38,0,0"/>
-                <Border Width="18" Height="48" Background="#111719" CornerRadius="7" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="287,23,0,0"/>
-                <Button x:Name="InstallButton" Content="A" Width="38" Height="32" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="348,18,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="15"/>
-                <Button x:Name="VerifyButton" Content="B" Width="34" Height="28" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="328,56,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Coral}" Foreground="#2D1110" FontSize="14"/>
-                <Button x:Name="CloseButton" Content="C" Width="30" Height="24" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="370,64,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Yellow}" Foreground="#2C210B" FontSize="12"/>
-                <TextBlock Text="A install   B verify   C close" Foreground="{StaticResource Muted}" FontSize="8" FontWeight="SemiBold" Width="132" TextAlignment="Center" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="274,77,0,0"/>
+                <Grid Grid.Column="2">
+                  <Button x:Name="InstallButton" Content="Install" Width="196" Height="42" HorizontalAlignment="Center" VerticalAlignment="Top" Style="{StaticResource PocketButton}" Background="{StaticResource Mint}" Foreground="#10231F" FontSize="16"/>
+                  <Button x:Name="VerifyButton" Content="Verify" Width="196" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,50,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Coral}" Foreground="#2D1110" FontSize="13"/>
+                  <Button x:Name="CloseButton" Content="Close" Width="196" Height="34" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,92,0,0" Style="{StaticResource PocketButton}" Background="{StaticResource Yellow}" Foreground="#2C210B" FontSize="13"/>
+                </Grid>
               </Grid>
             </Border>
 
@@ -405,6 +413,7 @@ $PercentText = $window.FindName("PercentText")
 $InstallButton = $window.FindName("InstallButton")
 $VerifyButton = $window.FindName("VerifyButton")
 $CloseButton = $window.FindName("CloseButton")
+$TitleCloseButton = $window.FindName("TitleCloseButton")
 
 $TopBar.Add_MouseLeftButtonDown({
   if ($_.ButtonState -eq [System.Windows.Input.MouseButtonState]::Pressed) {
@@ -423,9 +432,8 @@ function Append-Log {
 function Set-Progress {
   param([int]$Value)
   $v = [Math]::Max(0, [Math]::Min(100, $Value))
-  $ProgressFill.Width = [Math]::Round(214 * ($v / 100), 0)
-  [System.Windows.Controls.Canvas]::SetLeft($ProgressBall, 13 + [Math]::Round(203 * ($v / 100), 0))
-  $ProgressBall.Margin = New-Object System.Windows.Thickness((13 + [Math]::Round(203 * ($v / 100), 0)), 66, 0, 0)
+  $ProgressFill.Width = [Math]::Round(330 * ($v / 100), 0)
+  $ProgressBall.Margin = New-Object System.Windows.Thickness(([Math]::Round(330 * ($v / 100), 0)), 99, 0, 0)
   $PercentText.Text = "$v%"
 }
 
@@ -436,6 +444,7 @@ function Set-Busy {
   $InstallButton.IsEnabled = -not $Busy
   $VerifyButton.IsEnabled = -not $Busy
   $CloseButton.IsEnabled = -not $Busy
+  $TitleCloseButton.IsEnabled = -not $Busy
   $PathBox.IsEnabled = -not $Busy
 }
 
@@ -518,6 +527,7 @@ $BrowseButton.Add_Click({
   Update-Preview
 })
 $CloseButton.Add_Click({ $window.Close() })
+$TitleCloseButton.Add_Click({ $window.Close() })
 
 $worker = New-Object System.ComponentModel.BackgroundWorker
 $worker.WorkerReportsProgress = $true
