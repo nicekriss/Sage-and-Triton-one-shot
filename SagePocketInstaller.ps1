@@ -250,10 +250,75 @@ function Run-LoggedProcess {
     [string[]]$Arguments,
     [scriptblock]$Log
   )
-  $output = & $FilePath @Arguments 2>&1
-  $exitCode = $LASTEXITCODE
-  foreach ($line in $output) { & $Log ([string]$line) }
-  if ($exitCode -ne 0) { throw "$FilePath exited with code $exitCode" }
+  function ConvertTo-ProcessArgument {
+    param([string]$Argument)
+    if ($null -eq $Argument) { return '""' }
+    if ($Argument -notmatch '[\s"&|<>\^\(\)]') { return $Argument }
+    return '"' + ($Argument -replace '"', '\"') + '"'
+  }
+
+  $id = [guid]::NewGuid().ToString("N")
+  $stdoutPath = Join-Path $env:TEMP "sage_process_$id.out.log"
+  $stderrPath = Join-Path $env:TEMP "sage_process_$id.err.log"
+
+  New-Item -ItemType File -Path $stdoutPath -Force | Out-Null
+  New-Item -ItemType File -Path $stderrPath -Force | Out-Null
+
+  $argumentText = ($Arguments | ForEach-Object { ConvertTo-ProcessArgument $_ }) -join " "
+  $commandText = "{0} {1} > {2} 2> {3}" -f `
+    (ConvertTo-ProcessArgument $FilePath),
+    $argumentText,
+    (ConvertTo-ProcessArgument $stdoutPath),
+    (ConvertTo-ProcessArgument $stderrPath)
+  $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+  $startInfo.FileName = $env:ComSpec
+  $startInfo.Arguments = "/d /s /c `"$commandText`""
+  $startInfo.UseShellExecute = $false
+  $startInfo.CreateNoWindow = $true
+  $process = [System.Diagnostics.Process]::Start($startInfo)
+
+  $positions = @{
+    $stdoutPath = 0L
+    $stderrPath = 0L
+  }
+
+  function Read-NewProcessLogLines {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+      [void]$stream.Seek($positions[$Path], [System.IO.SeekOrigin]::Begin)
+      $reader = New-Object System.IO.StreamReader($stream)
+      while (-not $reader.EndOfStream) {
+        $line = $reader.ReadLine()
+        if (-not [string]::IsNullOrWhiteSpace($line)) {
+          & $Log $line
+        }
+      }
+      $positions[$Path] = $stream.Position
+    } finally {
+      $stream.Close()
+    }
+  }
+
+  while (-not $process.HasExited) {
+    Read-NewProcessLogLines $stdoutPath
+    Read-NewProcessLogLines $stderrPath
+    Start-Sleep -Milliseconds 250
+    [System.Windows.Forms.Application]::DoEvents()
+  }
+
+  $process.WaitForExit()
+  $process.Refresh()
+  Read-NewProcessLogLines $stdoutPath
+  Read-NewProcessLogLines $stderrPath
+
+  Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+
+  $exitCode = $process.ExitCode
+  if ($exitCode -ne 0) {
+    throw "$FilePath exited with code $exitCode"
+  }
 }
 
 function Install-PipPackage {
