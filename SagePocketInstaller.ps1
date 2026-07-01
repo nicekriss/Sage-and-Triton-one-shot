@@ -134,13 +134,13 @@ function Get-PythonInfo {
 import json
 import platform
 import sys
-data = {"python": sys.version.split()[0], "platform": platform.platform()}
+data = {'python': sys.version.split()[0], 'platform': platform.platform()}
 try:
     import torch
-    data["torch"] = torch.__version__
-    data["torch_cuda"] = torch.version.cuda
+    data['torch'] = torch.__version__
+    data['torch_cuda'] = torch.version.cuda
 except Exception as exc:
-    data["torch_error"] = repr(exc)
+    data['torch_error'] = repr(exc)
 print(json.dumps(data))
 '@
   $raw = & $Python -c $code 2>&1
@@ -462,12 +462,19 @@ function Apply-Candidates {
 }
 
 function Start-Scan {
-  if ($scanWorker.IsBusy) { return }
   $WindowStateText.Text = "SCAN..."
   Append-Log "scanning ComfyUI paths"
   $ScanButton.IsEnabled = $false
   $BrowseButton.IsEnabled = $false
-  $scanWorker.RunWorkerAsync()
+  try {
+    Apply-Candidates -Paths ([string[]]@(Get-ComfyCandidates))
+  } catch {
+    $WindowStateText.Text = "ERR"
+    Append-Log $_.Exception.Message
+  } finally {
+    $ScanButton.IsEnabled = -not ($worker -and $worker.IsBusy)
+    $BrowseButton.IsEnabled = -not ($worker -and $worker.IsBusy)
+  }
 }
 
 function Update-Preview {
@@ -486,23 +493,6 @@ function Update-Preview {
     Append-Log $_.Exception.Message
   }
 }
-
-$scanWorker = New-Object System.ComponentModel.BackgroundWorker
-$scanWorker.Add_DoWork({
-  param($sender, $eventArgs)
-  $eventArgs.Result = @(Get-ComfyCandidates)
-})
-$scanWorker.Add_RunWorkerCompleted({
-  param($sender, $eventArgs)
-  $ScanButton.IsEnabled = -not $worker.IsBusy
-  $BrowseButton.IsEnabled = -not $worker.IsBusy
-  if ($eventArgs.Error) {
-    $WindowStateText.Text = "ERR"
-    Append-Log $eventArgs.Error.Message
-  } else {
-    Apply-Candidates -Paths ([string[]]$eventArgs.Result)
-  }
-})
 
 $PathBox.Add_SelectionChanged({ Update-Preview })
 $PathBox.Add_LostFocus({ Update-Preview })
