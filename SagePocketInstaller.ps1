@@ -166,8 +166,15 @@ except Exception as exc:
     data['torch_error'] = repr(exc)
 print(json.dumps(data))
 '@
-  $raw = & $Python -c $code 2>&1
-  if ($LASTEXITCODE -ne 0) { throw "Could not run Python: $raw" }
+  $probePath = Join-Path $env:TEMP ("sage_env_probe_{0}.py" -f ([guid]::NewGuid().ToString("N")))
+  Set-Content -LiteralPath $probePath -Value $code -Encoding UTF8
+  $rawLines = New-Object System.Collections.Generic.List[string]
+  try {
+    Run-LoggedProcess $Python @($probePath) { param($line) [void]$rawLines.Add([string]$line) }
+  } finally {
+    Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+  }
+  $raw = @($rawLines)
   $jsonLine = @($raw | ForEach-Object { [string]$_ } | Where-Object {
     $line = $_.Trim()
     $line.StartsWith("{") -and $line.EndsWith("}")
