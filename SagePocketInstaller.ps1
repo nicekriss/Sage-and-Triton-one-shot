@@ -83,8 +83,25 @@ function Add-ComfyCandidate {
   }
 }
 
+function Get-FixedDriveRoots {
+  [System.IO.DriveInfo]::GetDrives() |
+    Where-Object { $_.DriveType -eq [System.IO.DriveType]::Fixed -and $_.IsReady } |
+    ForEach-Object { $_.RootDirectory.FullName }
+}
+
 function Get-ComfyCandidates {
   $items = New-Object System.Collections.Generic.List[string]
+  $driveRoots = @(Get-FixedDriveRoots)
+  $driveCandidates = foreach ($drive in $driveRoots) {
+    Join-Path $drive "ComfyUI"
+    Join-Path $drive "comfy\ComfyUI"
+    Join-Path $drive "AI\ComfyUI"
+    Join-Path $drive "AIWORK\ComfyUI"
+    Join-Path $drive "Apps\ComfyUI"
+    Join-Path $drive "SM\Data\Packages\ComfyUI"
+    Join-Path $drive "StabilityMatrix\Data\Packages\ComfyUI"
+  }
+
   foreach ($path in @(
     $ComfyUIPath,
     (Get-Location).Path,
@@ -93,12 +110,18 @@ function Get-ComfyCandidates {
     "C:\comfy\ComfyUI",
     "$env:LOCALAPPDATA\ComfyUI",
     "$env:USERPROFILE\ComfyUI"
-  )) {
+  ) + $driveCandidates) {
     Add-ComfyCandidate $items $path
   }
 
   $searchRoots = @(
+    $driveRoots,
     "C:\comfy",
+    ($driveRoots | ForEach-Object { Join-Path $_ "comfy" }),
+    ($driveRoots | ForEach-Object { Join-Path $_ "AI" }),
+    ($driveRoots | ForEach-Object { Join-Path $_ "AIWORK" }),
+    ($driveRoots | ForEach-Object { Join-Path $_ "Apps" }),
+    ($driveRoots | ForEach-Object { Join-Path $_ "SM\Data\Packages" }),
     "$env:USERPROFILE\Documents",
     "$env:LOCALAPPDATA",
     "$env:APPDATA",
@@ -115,7 +138,7 @@ function Get-ComfyCandidates {
         Add-ComfyCandidate $items $dir.FullName
       }
     }
-    $likelyParents = $level1 | Where-Object { $_.Name -match "Comfy|ComfyUI|Stable|Stability|Packages|Data" }
+    $likelyParents = $level1 | Where-Object { $_.Name -match "Comfy|ComfyUI|Stable|Stability|Packages|Data|AI|AIWORK|Apps|Tools" }
     foreach ($parent in $likelyParents) {
       $level2 = @(Get-ChildItem -LiteralPath $parent.FullName -Directory -ErrorAction SilentlyContinue)
       foreach ($dir in $level2) {
@@ -472,15 +495,22 @@ function Apply-Candidates {
 
 function Start-Scan {
   $WindowStateText.Text = "SCAN..."
+  $EnvText.Text = "Scanning common ComfyUI locations..."
+  $PercentText.Text = "..."
+  $window.Cursor = [System.Windows.Input.Cursors]::Wait
   Append-Log "scanning ComfyUI paths"
   $ScanButton.IsEnabled = $false
   $BrowseButton.IsEnabled = $false
+  $window.UpdateLayout()
+  $window.Dispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Render)
   try {
     Apply-Candidates -Paths ([string[]]@(Get-ComfyCandidates))
   } catch {
     $WindowStateText.Text = "ERR"
     Append-Log $_.Exception.Message
   } finally {
+    $window.Cursor = $null
+    $PercentText.Text = ("{0}%" -f [Math]::Round(($ProgressFill.Width / 330) * 100, 0))
     $ScanButton.IsEnabled = -not $script:IsBusy
     $BrowseButton.IsEnabled = -not $script:IsBusy
   }
