@@ -481,8 +481,8 @@ function Start-Scan {
     $WindowStateText.Text = "ERR"
     Append-Log $_.Exception.Message
   } finally {
-    $ScanButton.IsEnabled = -not ($worker -and $worker.IsBusy)
-    $BrowseButton.IsEnabled = -not ($worker -and $worker.IsBusy)
+    $ScanButton.IsEnabled = -not $script:IsBusy
+    $BrowseButton.IsEnabled = -not $script:IsBusy
   }
 }
 
@@ -529,44 +529,20 @@ $BrowseButton.Add_Click({
 $CloseButton.Add_Click({ $window.Close() })
 $TitleCloseButton.Add_Click({ $window.Close() })
 
-$worker = New-Object System.ComponentModel.BackgroundWorker
-$worker.WorkerReportsProgress = $true
+$script:IsBusy = $false
 
-$verifyWorker = New-Object System.ComponentModel.BackgroundWorker
-$verifyWorker.WorkerReportsProgress = $true
-
-$verifyWorker.Add_DoWork({
-  param($sender, $eventArgs)
-  $path = [string]$eventArgs.Argument
-  $report = { param([int]$pct, [string]$message) $sender.ReportProgress($pct, $message) }
-  & $report 75 "verifying triton"
-  $python = Find-Python $path
-  if (-not $python) { throw "Could not find Python under $path" }
-  Run-LoggedProcess $python @("-c", "import triton; print('triton OK', getattr(triton, '__version__', 'unknown'))") { param($line) & $report 82 $line }
-  & $report 90 "verifying sageattention"
-  Run-LoggedProcess $python @("-c", "import sageattention; print('sageattention OK')") { param($line) & $report 96 $line }
-  & $report 100 "verification complete"
-})
-
-$verifyWorker.Add_ProgressChanged({
-  param($sender, $eventArgs)
-  Set-Progress $eventArgs.ProgressPercentage
-  Append-Log ([string]$eventArgs.UserState)
-})
-
-$verifyWorker.Add_RunWorkerCompleted({
-  param($sender, $eventArgs)
-  Set-Busy $false
-  if ($eventArgs.Error) {
-    $WindowStateText.Text = "ERR"
-    Append-Log $eventArgs.Error.Message
-  } else {
-    $WindowStateText.Text = "WIN"
-  }
-})
+function Report-Step {
+  param(
+    [int]$Percent,
+    [string]$Message
+  )
+  Set-Progress $Percent
+  Append-Log $Message
+  $window.UpdateLayout()
+}
 
 $VerifyButton.Add_Click({
-  if ($worker.IsBusy -or $verifyWorker.IsBusy) { return }
+  if ($script:IsBusy) { return }
   $path = Get-CurrentComfyPath
   if ([string]::IsNullOrWhiteSpace($path)) {
     Append-Log "choose ComfyUI first"
@@ -574,53 +550,61 @@ $VerifyButton.Add_Click({
   }
   $WindowStateText.Text = "CHECK"
   Set-Busy $true
-  $verifyWorker.RunWorkerAsync($path)
+  $script:IsBusy = $true
+  try {
+    Report-Step 75 "verifying triton"
+    $python = Find-Python $path
+    if (-not $python) { throw "Could not find Python under $path" }
+    Run-LoggedProcess $python @("-c", "import triton; print('triton OK', getattr(triton, '__version__', 'unknown'))") { param($line) Report-Step 82 $line }
+    Report-Step 90 "verifying sageattention"
+    Run-LoggedProcess $python @("-c", "import sageattention; print('sageattention OK')") { param($line) Report-Step 96 $line }
+    Report-Step 100 "verification complete"
+    $WindowStateText.Text = "WIN"
+  } catch {
+    $WindowStateText.Text = "ERR"
+    Append-Log $_.Exception.Message
+  } finally {
+    $script:IsBusy = $false
+    Set-Busy $false
+  }
 })
 
-$worker.Add_DoWork({
-  param($sender, $eventArgs)
-  $path = [string]$eventArgs.Argument
-  $report = { param([int]$pct, [string]$message) $sender.ReportProgress($pct, $message) }
-
-  & $report 8 "reading environment"
-  $python = Find-Python $path
-  if (-not $python) { throw "Could not find Python under $path" }
+function Install-SelectedComfy {
+  param([string]$Path)
+  Report-Step 8 "reading environment"
+  $python = Find-Python $Path
+  if (-not $python) { throw "Could not find Python under $Path" }
   $info = Get-PythonInfo $python
   $plan = Get-InstallPlan $info
 
-  & $report 15 "torch $($info.torch), cuda $($info.torch_cuda)"
-  & $report 45 "installing triton"
-  Install-PipPackage $python @($plan.TritonSpec) { param($line) & $report 55 $line } "Triton install failed. Check the tool version and your PyTorch version."
+  Report-Step 15 "torch $($info.torch), cuda $($info.torch_cuda)"
+  Report-Step 45 "installing triton"
+  Install-PipPackage $python @($plan.TritonSpec) { param($line) Report-Step 55 $line } "Triton install failed. Check the tool version and your PyTorch version."
 
-  & $report 70 "installing sageattention"
-  Install-PipPackage $python @($plan.SageUrl) { param($line) & $report 80 $line } "SageAttention wheel install failed. Check whether a newer tool version supports this CUDA/PyTorch build."
+  Report-Step 70 "installing sageattention"
+  Install-PipPackage $python @($plan.SageUrl) { param($line) Report-Step 80 $line } "SageAttention wheel install failed. Check whether a newer tool version supports this CUDA/PyTorch build."
 
-  & $report 90 "verifying imports"
-  Run-LoggedProcess $python @("-c", "import triton; import sageattention; print('imports OK')") { param($line) & $report 95 $line }
-  & $report 100 "done"
-})
+  Report-Step 90 "verifying imports"
+  Run-LoggedProcess $python @("-c", "import triton; import sageattention; print('imports OK')") { param($line) Report-Step 95 $line }
+  Report-Step 100 "done"
+}
 
-$worker.Add_ProgressChanged({
-  param($sender, $eventArgs)
-  Set-Progress $eventArgs.ProgressPercentage
-  Append-Log ([string]$eventArgs.UserState)
-})
-
-$worker.Add_RunWorkerCompleted({
-  param($sender, $eventArgs)
+function Complete-Install {
+  param([System.Management.Automation.ErrorRecord]$ErrorRecord)
   Set-Busy $false
-  if ($eventArgs.Error) {
+  $script:IsBusy = $false
+  if ($ErrorRecord) {
     $WindowStateText.Text = "ERR"
-    Append-Log $eventArgs.Error.Message
-    [System.Windows.MessageBox]::Show($eventArgs.Error.Message, "Install failed", "OK", "Error") | Out-Null
+    Append-Log $ErrorRecord.Exception.Message
+    [System.Windows.MessageBox]::Show($ErrorRecord.Exception.Message, "Install failed", "OK", "Error") | Out-Null
   } else {
     $WindowStateText.Text = "WIN"
     [System.Windows.MessageBox]::Show("Done. Start ComfyUI with --use-sage-attention.", "Install complete", "OK", "Information") | Out-Null
   }
-})
+}
 
 $InstallButton.Add_Click({
-  if ($worker.IsBusy -or $verifyWorker.IsBusy) { return }
+  if ($script:IsBusy) { return }
   $path = Get-CurrentComfyPath
   if ([string]::IsNullOrWhiteSpace($path)) {
     Append-Log "choose ComfyUI first"
@@ -639,7 +623,13 @@ $InstallButton.Add_Click({
   Set-Progress 0
   $WindowStateText.Text = "PLAY"
   Set-Busy $true
-  $worker.RunWorkerAsync($path)
+  $script:IsBusy = $true
+  try {
+    Install-SelectedComfy $path
+    Complete-Install $null
+  } catch {
+    Complete-Install $_
+  }
 })
 
 $window.Add_SourceInitialized({
