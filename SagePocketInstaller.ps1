@@ -114,6 +114,19 @@ function Get-ComfyCandidates {
     Add-ComfyCandidate $items $path
   }
 
+  # ComfyUI Desktop keeps installs at Comfy-Desktop\ComfyUI-Installs\<instance>\ComfyUI.
+  # Instance names are user-defined, so enumerate every instance instead of name matching.
+  $desktopInstallRoots = @(
+    "$env:LOCALAPPDATA\Comfy-Desktop\ComfyUI-Installs",
+    "$env:APPDATA\Comfy-Desktop\ComfyUI-Installs"
+  ) + ($driveRoots | ForEach-Object { Join-Path $_ "Comfy-Desktop\ComfyUI-Installs" })
+  foreach ($installRoot in ($desktopInstallRoots | Where-Object { $_ -and (Test-Path -LiteralPath $_) })) {
+    foreach ($instance in @(Get-ChildItem -LiteralPath $installRoot -Directory -ErrorAction SilentlyContinue)) {
+      Add-ComfyCandidate $items (Join-Path $instance.FullName "ComfyUI")
+      Add-ComfyCandidate $items $instance.FullName
+    }
+  }
+
   $searchRoots = @(
     $driveRoots,
     "C:\comfy",
@@ -562,6 +575,7 @@ function Apply-Candidates {
   } else {
     $WindowStateText.Text = "MISS"
     Append-Log "no install found"
+    Append-Log "ComfyUI Desktop? pick AppData\Local\Comfy-Desktop\ComfyUI-Installs\<name>\ComfyUI with ..."
   }
 }
 

@@ -38,6 +38,20 @@ Close ComfyUI before installing.
 
 In the ComfyUI log, look for a Sage Attention message such as `Using sage attention`.
 
+## Supported ComfyUI Layouts
+
+`SCAN` looks for these install styles automatically:
+
+- Git clone ComfyUI with `.venv`, `venv`, or `python_embeded` (portable)
+- Stability Matrix packages (`StabilityMatrix\Data\Packages\ComfyUI`)
+- ComfyUI Desktop instances:
+
+```text
+%LOCALAPPDATA%\Comfy-Desktop\ComfyUI-Installs\<instance name>\ComfyUI
+```
+
+If `SCAN` still cannot find your install, use `...` and select the ComfyUI folder that contains `main.py` and the Python environment. For ComfyUI Desktop, that is the `ComfyUI` folder inside your instance folder shown above — not `Comfy-Desktop` or `ComfyUI-Installs` themselves.
+
 ## Buttons
 
 - `SCAN`: Search common ComfyUI locations again.
