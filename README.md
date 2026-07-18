@@ -31,7 +31,7 @@ Close ComfyUI before installing.
 
 1. Download this repository as a ZIP, then extract it.
 2. Double-click `PingPong-SageInstaller.bat`.
-3. Pick your ComfyUI folder from the dropdown, or use `...` to select it manually.
+3. Pick your ComfyUI folder from the dropdown, or use `Browse` to select it manually. For portable builds, you may select the portable top folder, its inner `ComfyUI` folder, or its `python_embeded` folder.
 4. Press **A** to install.
 5. Press **B** to verify imports.
 6. Start ComfyUI with `--use-sage-attention`.
@@ -43,6 +43,7 @@ In the ComfyUI log, look for a Sage Attention message such as `Using sage attent
 `SCAN` looks for these install styles automatically:
 
 - Git clone ComfyUI with `.venv`, `venv`, or `python_embeded` (portable)
+- Portable builds on fixed, USB, or external drives; the scanner also checks Downloads and Desktop
 - Stability Matrix packages (`StabilityMatrix\Data\Packages\ComfyUI`)
 - ComfyUI Desktop instances:
 
@@ -50,7 +51,7 @@ In the ComfyUI log, look for a Sage Attention message such as `Using sage attent
 %LOCALAPPDATA%\Comfy-Desktop\ComfyUI-Installs\<instance name>\ComfyUI
 ```
 
-If `SCAN` still cannot find your install, use `...` and select the ComfyUI folder that contains `main.py` and the Python environment. For ComfyUI Desktop, that is the `ComfyUI` folder inside your instance folder shown above — not `Comfy-Desktop` or `ComfyUI-Installs` themselves.
+If `SCAN` still cannot find your install, use `Browse`. For portable builds, selecting the portable top folder, the inner `ComfyUI` folder, or `python_embeded` all resolve to the same installation automatically. For ComfyUI Desktop, select the `ComfyUI` folder inside the instance folder shown above, not `Comfy-Desktop` or `ComfyUI-Installs` themselves.
 
 ## Buttons
 

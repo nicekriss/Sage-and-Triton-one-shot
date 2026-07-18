@@ -59,7 +59,7 @@ function Find-Python {
   return $null
 }
 
-function Test-ComfyRoot {
+function Test-ComfyRootLayout {
   param([string]$Root)
   if (-not $Root -or -not (Test-Path -LiteralPath $Root)) { return $false }
   $hasPython = [bool](Find-Python $Root)
@@ -71,27 +71,60 @@ function Test-ComfyRoot {
   return ($hasPython -and $hasMarkers)
 }
 
+function Resolve-ComfyRoot {
+  param([string]$Path)
+  if (-not $Path) { return $null }
+  $cleanPath = $Path.Trim('"').Trim()
+  if (-not (Test-Path -LiteralPath $cleanPath -PathType Container)) { return $null }
+
+  $resolved = (Resolve-Path -LiteralPath $cleanPath).Path
+  $candidates = New-Object System.Collections.Generic.List[string]
+  $candidates.Add($resolved)
+
+  # Portable users often select the inner ComfyUI or python_embeded folder.
+  # In both cases the installable Python lives under the common parent folder.
+  $parent = Split-Path -Parent $resolved
+  if ($parent -and -not $candidates.Contains($parent)) {
+    $candidates.Add($parent)
+  }
+
+  foreach ($candidate in $candidates) {
+    if (Test-ComfyRootLayout $candidate) { return $candidate }
+  }
+  return $null
+}
+
+function Test-ComfyRoot {
+  param([string]$Root)
+  return [bool](Resolve-ComfyRoot $Root)
+}
+
 function Add-ComfyCandidate {
   param(
     [System.Collections.Generic.List[string]]$Items,
     [string]$Path
   )
   if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
-  $resolved = (Resolve-Path -LiteralPath $Path).Path
-  if ((Test-ComfyRoot $resolved) -and -not $Items.Contains($resolved)) {
+  $resolved = Resolve-ComfyRoot $Path
+  if ($resolved -and -not $Items.Contains($resolved)) {
     $Items.Add($resolved)
   }
 }
 
-function Get-FixedDriveRoots {
+function Get-SearchableDriveRoots {
   [System.IO.DriveInfo]::GetDrives() |
-    Where-Object { $_.DriveType -eq [System.IO.DriveType]::Fixed -and $_.IsReady } |
+    Where-Object {
+      $_.IsReady -and $_.DriveType -in @(
+        [System.IO.DriveType]::Fixed,
+        [System.IO.DriveType]::Removable
+      )
+    } |
     ForEach-Object { $_.RootDirectory.FullName }
 }
 
 function Get-ComfyCandidates {
   $items = New-Object System.Collections.Generic.List[string]
-  $driveRoots = @(Get-FixedDriveRoots)
+  $driveRoots = @(Get-SearchableDriveRoots)
   $driveCandidates = foreach ($drive in $driveRoots) {
     Join-Path $drive "ComfyUI"
     Join-Path $drive "comfy\ComfyUI"
@@ -135,6 +168,8 @@ function Get-ComfyCandidates {
     ($driveRoots | ForEach-Object { Join-Path $_ "AIWORK" }),
     ($driveRoots | ForEach-Object { Join-Path $_ "Apps" }),
     ($driveRoots | ForEach-Object { Join-Path $_ "SM\Data\Packages" }),
+    "$env:USERPROFILE\Downloads",
+    "$env:USERPROFILE\Desktop",
     "$env:USERPROFILE\Documents",
     "$env:LOCALAPPDATA",
     "$env:APPDATA",
@@ -557,7 +592,10 @@ function Get-CurrentComfyPath {
   if ([string]::IsNullOrWhiteSpace($path) -and $null -ne $PathBox.SelectedItem) {
     $path = [string]$PathBox.SelectedItem
   }
-  return $path.Trim('"').Trim()
+  $cleanPath = $path.Trim('"').Trim()
+  $resolved = Resolve-ComfyRoot $cleanPath
+  if ($resolved) { return $resolved }
+  return $cleanPath
 }
 
 function Apply-Candidates {
@@ -571,7 +609,7 @@ function Apply-Candidates {
   } else {
     $WindowStateText.Text = "MISS"
     Append-Log "no install found"
-    Append-Log "ComfyUI Desktop? pick AppData\Local\Comfy-Desktop\ComfyUI-Installs\<name>\ComfyUI with ..."
+    Append-Log "Portable? select its top folder, inner ComfyUI folder, or python_embeded folder with Browse."
   }
 }
 
@@ -620,22 +658,23 @@ $PathBox.Add_LostFocus({ Update-Preview })
 $ScanButton.Add_Click({ Start-Scan })
 $BrowseButton.Add_Click({
   $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-  $dialog.Description = "Select a ComfyUI folder"
+  $dialog.Description = "Select ComfyUI. Portable top folder, inner ComfyUI, and python_embeded are all supported."
   if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
   $selected = $dialog.SelectedPath
-  if (-not (Test-ComfyRoot $selected)) {
+  $resolved = Resolve-ComfyRoot $selected
+  if (-not $resolved) {
     [System.Windows.MessageBox]::Show(
-      "That folder does not look like a ComfyUI install with a Python environment.",
+      "ComfyUI was not found there. For portable builds, select the top folder, its inner ComfyUI folder, or python_embeded.",
       "ComfyUI not found",
       "OK",
       "Warning"
     ) | Out-Null
     return
   }
-  if (-not $PathBox.Items.Contains($selected)) {
-    [void]$PathBox.Items.Add($selected)
+  if (-not $PathBox.Items.Contains($resolved)) {
+    [void]$PathBox.Items.Add($resolved)
   }
-  $PathBox.Text = $selected
+  $PathBox.Text = $resolved
   Update-Preview
 })
 $CloseButton.Add_Click({ $window.Close() })
