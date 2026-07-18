@@ -126,24 +126,16 @@ function Get-InstallPlan {
   $torchVersion = [version]$torchVersionText
   $cudaText = [string]$Info.torch_cuda
 
-  if ($torchVersion -lt [version]"2.9.0") {
-    throw "Torch $torchVersionText is too old for this wheel helper. Use Torch 2.9+."
+  if ($torchVersion -lt [version]"2.10.0") {
+    throw "Torch $torchVersionText is too old for this wheel helper. SageAttention post5 requires Torch 2.10+."
   }
 
-  if ($torchVersion -ge [version]"2.10.0") {
-    $tritonSpec = "triton-windows<3.7"
-  } elseif ($torchVersion -ge [version]"2.9.0") {
-    $tritonSpec = "triton-windows<3.6"
-  } elseif ($torchVersion -ge [version]"2.8.0") {
-    $tritonSpec = "triton-windows<3.5"
-  } else {
-    $tritonSpec = "triton-windows<3.4"
-  }
+  $tritonSpec = "triton-windows<3.7"
 
   if ($cudaText -like "13.*") {
-    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu130torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
+    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post5/sageattention-2.2.0+cu130torch2.10.0andhigher.post5-cp310-abi3-win_amd64.whl"
   } elseif ($cudaText -like "12.*") {
-    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post4/sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
+    $sageUrl = "https://github.com/woct0rdho/SageAttention/releases/download/v2.2.0-windows.post5/sageattention-2.2.0+cu128torch2.10.0andhigher.post5-cp310-abi3-win_amd64.whl"
   } else {
     throw "Unsupported Torch CUDA value: $cudaText. Expected CUDA 12.x or 13.x."
   }

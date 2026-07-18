@@ -21,7 +21,7 @@ It installs into the selected ComfyUI environment only. It does not install into
 - Windows
 - Windows PowerShell 5.1 or newer
 - ComfyUI with a Python environment such as `.venv`
-- PyTorch 2.9 or newer
+- PyTorch 2.10 or newer
 - CUDA 12.x or CUDA 13.x PyTorch build
 - Internet connection
 
@@ -75,9 +75,10 @@ The installer reads `torch.__version__` and `torch.version.cuda` from the select
 Current package mapping:
 
 - PyTorch `>= 2.10`: `triton-windows<3.7`
-- PyTorch `>= 2.9` and `< 2.10`: `triton-windows<3.6`
 - CUDA `13.x`: SageAttention `cu130` wheel
 - CUDA `12.x`: SageAttention `cu128` wheel
+
+Version 0.1.2 uses SageAttention `v2.2.0-windows.post5`, including the head-dimension 256 support required by Ideogram 4.
 
 The SageAttention release is pinned in `SagePocketInstaller.ps1`. If your CUDA/PyTorch combination is not supported, the installer stops with a clear message. In that case, check whether a newer release of this tool exists.
 

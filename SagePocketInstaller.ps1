@@ -14,11 +14,11 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
-$SageAttentionRelease = "v2.2.0-windows.post4"
+$SageAttentionRelease = "v2.2.0-windows.post5"
 $SageAttentionBaseUrl = "https://github.com/woct0rdho/SageAttention/releases/download/$SageAttentionRelease"
 $SageAttentionWheelMap = @{
-  "cu128" = "sageattention-2.2.0+cu128torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
-  "cu130" = "sageattention-2.2.0+cu130torch2.9.0andhigher.post4-cp39-abi3-win_amd64.whl"
+  "cu128" = "sageattention-2.2.0+cu128torch2.10.0andhigher.post5-cp310-abi3-win_amd64.whl"
+  "cu130" = "sageattention-2.2.0+cu130torch2.10.0andhigher.post5-cp310-abi3-win_amd64.whl"
 }
 $UpgradePipToolsOnFailure = $true
 
@@ -242,15 +242,11 @@ function Get-InstallPlan {
   $torchVersion = [version]$torchVersionText
   $cudaText = [string]$Info.torch_cuda
 
-  if ($torchVersion -lt [version]"2.9.0") {
-    throw "Torch $torchVersionText is too old for this helper. Use Torch 2.9+."
+  if ($torchVersion -lt [version]"2.10.0") {
+    throw "Torch $torchVersionText is too old for this helper. SageAttention post5 requires Torch 2.10+."
   }
 
-  if ($torchVersion -ge [version]"2.10.0") {
-    $tritonSpec = "triton-windows<3.7"
-  } else {
-    $tritonSpec = "triton-windows<3.6"
-  }
+  $tritonSpec = "triton-windows<3.7"
   $sageWheel = Resolve-SageAttentionWheel -CudaText $cudaText
 
   return [pscustomobject]@{
